@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -25,22 +26,44 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     @Autowired
     MyUserDetailsService2 myUserDetailsService2;
 
+//    @Override
+//    @Bean
+//    public AuthenticationManager authenticationManagerBean() throws Exception {
+//        DaoAuthenticationProvider dao1 = new DaoAuthenticationProvider();
+//        dao1.setUserDetailsService(myUserDetailsService);
+//
+//        DaoAuthenticationProvider dao2 = new DaoAuthenticationProvider();
+//        dao2.setUserDetailsService(myUserDetailsService2);
+//
+//        ProviderManager manager = new ProviderManager(dao1, dao2);
+//        return manager;
+//    }
+
+    @Bean
+    AuthenticationProvider kaptchaAuthenticationProvider() {
+        KaptchaAuthenticationProvider provider = new KaptchaAuthenticationProvider();
+        provider.setUserDetailsService(myUserDetailsService);
+        return provider;
+    }
+
+    @Bean
+    AuthenticationProvider kaptchaAuthenticationProvider2() {
+        KaptchaAuthenticationProvider provider2 = new KaptchaAuthenticationProvider();
+        provider2.setUserDetailsService(myUserDetailsService2);
+        return provider2;
+    }
+
     @Override
     @Bean
     public AuthenticationManager authenticationManagerBean() throws Exception {
-        DaoAuthenticationProvider dao1 = new DaoAuthenticationProvider();
-        dao1.setUserDetailsService(myUserDetailsService);
-
-        DaoAuthenticationProvider dao2 = new DaoAuthenticationProvider();
-        dao2.setUserDetailsService(myUserDetailsService2);
-
-        ProviderManager manager = new ProviderManager(dao1, dao2);
+        ProviderManager manager = new ProviderManager(kaptchaAuthenticationProvider(), kaptchaAuthenticationProvider2());
         return manager;
     }
 
     @Override
     protected void configure(HttpSecurity http) throws Exception {
         http.authorizeRequests()
+                .antMatchers("/vc.jpg").permitAll()
                 .anyRequest().authenticated()
                 .and()
                 .formLogin()
