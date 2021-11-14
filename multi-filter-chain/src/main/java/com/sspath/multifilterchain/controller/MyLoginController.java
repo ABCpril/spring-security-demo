@@ -20,4 +20,9 @@ public class MyLoginController {
     public String foologin() {
         return "foologin";
     }
+
+    @RequestMapping("/kaptcha/login")
+    public String kaptchalogin() {
+        return "kaptchalogin";
+    }
 }

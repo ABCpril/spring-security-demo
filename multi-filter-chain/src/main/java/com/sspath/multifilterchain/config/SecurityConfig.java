@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
@@ -11,10 +12,13 @@ import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+import org.springframework.security.web.authentication.SimpleUrlAuthenticationFailureHandler;
+import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 /**
  * @FileName: SecurityConfig.java
- * @Description: 配置类里，两个WebSecurityConfigurerAdapter实例配置两条过滤器链
+ * @Description: 配置类里，3个WebSecurityConfigurerAdapter实例配置三条过滤器链
  * @Author: ABCpril
  * @Date: 2021/11/14
  */
@@ -87,6 +91,59 @@ public class SecurityConfig {
                     .formLogin()
                     .loginPage("/foo/login")
                     .loginProcessingUrl("/foo/doLogin")
+//                    .defaultSuccessUrl("/index.html")
+                    .successHandler((req, resp, auth) -> {
+                        resp.setContentType("application/json;charset=utf-8");
+                        String s = new ObjectMapper().writeValueAsString(auth);
+                        resp.getWriter().write(s);
+                    })
+                    .permitAll()
+                    .and()
+                    .csrf().disable()
+                    .userDetailsService(users);
+        }
+    }
+
+    @Configuration
+    @Order(3)
+    static class SecurityConfig03 extends WebSecurityConfigurerAdapter {
+        @Override
+        protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+            auth.inMemoryAuthentication()
+                    .withUser("kaptchaUser")
+                    .password("{noop}123")
+                    .roles("admin");
+        }
+
+        @Override
+        @Bean
+        public AuthenticationManager authenticationManagerBean() throws Exception {
+            return super.authenticationManagerBean();
+        }
+
+        @Bean
+        LoginFilter loginFilter() throws Exception {
+            LoginFilter loginFilter = new LoginFilter();
+            loginFilter.setFilterProcessesUrl("/kaptcha/doLogin");
+            loginFilter.setAuthenticationManager(authenticationManagerBean());
+            loginFilter.setAuthenticationSuccessHandler(new SimpleUrlAuthenticationSuccessHandler("/index.html"));
+            loginFilter.setAuthenticationFailureHandler(new SimpleUrlAuthenticationFailureHandler("/kaptcha/login"));
+            return loginFilter;
+        }
+
+        @Override
+        protected void configure(HttpSecurity http) throws Exception {
+            InMemoryUserDetailsManager users = new InMemoryUserDetailsManager();
+            users.createUser(User.withUsername("kaptcha").password("{noop}123").roles("admin").build());
+
+            http.antMatcher("/kaptcha/**")
+                    .authorizeRequests()
+                    .antMatchers("/vc.jpg").permitAll()
+                    .anyRequest().authenticated()
+                    .and()
+                    .formLogin()
+                    .loginPage("/kaptcha/login")
+                    .loginProcessingUrl("/kaptcha/doLogin")
                     .defaultSuccessUrl("/index.html")
 //                    .successHandler((req, resp, auth) -> {
 //                        resp.setContentType("application/json;charset=utf-8");
@@ -97,6 +154,7 @@ public class SecurityConfig {
                     .and()
                     .csrf().disable()
                     .userDetailsService(users);
+            http.addFilterAt(loginFilter(), UsernamePasswordAuthenticationFilter.class);
         }
     }
 }
